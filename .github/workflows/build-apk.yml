@@ -55,3 +55,38 @@ jobs:
           --target "${{ github.sha }}"
           --title "Keep 1.0.${{ github.run_number }}"
           --notes "Download keep.apk on your Android phone and open it to install."
+
+  # Publishes the download page (site/index.html) with the newest APK next to it.
+  # Needs Pages switched on once: Settings -> Pages -> Source: GitHub Actions.
+  pages:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: keep-apk
+          path: _site
+
+      - name: Assemble the download page
+        run: |
+          cp site/index.html _site/index.html
+          cp icons/keep-512.png _site/icon.png
+          sed -i "s/__VERSION__/1.0.${{ github.run_number }}/; s/__DATE__/$(date -u '+%-d %B %Y')/" _site/index.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
