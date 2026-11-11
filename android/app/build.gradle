@@ -1,0 +1,94 @@
+plugins {
+    id 'com.android.application'
+}
+
+// The web app lives in the repository root; it is copied into the APK's assets at build time.
+def webRoot = rootProject.projectDir.parentFile
+def webAssets = layout.buildDirectory.dir('webAssets')
+
+// Release signing key. Keeping the same key lets a newer APK install over an older one
+// without losing the entries stored on the phone.
+// The key is never committed: android/signing/ is git-ignored. Locally the password comes from
+// signing/signing.properties; on GitHub the workflow restores both from repository secrets.
+// Without a key the build falls back to a throwaway debug key (installable, but not updatable).
+def keyStoreFile = rootProject.file('signing/keep.p12')
+def signingPropsFile = rootProject.file('signing/signing.properties')
+def storePass = System.getenv('KEEP_STORE_PASSWORD')
+if (!storePass && signingPropsFile.exists()) {
+    def signingProps = new Properties()
+    signingPropsFile.withInputStream { signingProps.load(it) }
+    storePass = signingProps.getProperty('storePassword')
+}
+def hasReleaseKey = keyStoreFile.exists() && storePass
+def signingAlias = null
+if (hasReleaseKey) {
+    def keyStore = java.security.KeyStore.getInstance('PKCS12')
+    keyStoreFile.withInputStream { keyStore.load(it, storePass.toCharArray()) }
+    signingAlias = Collections.list(keyStore.aliases()).find { keyStore.isKeyEntry(it) }
+}
+
+def buildNumber = (findProperty('buildNumber') ?: '1') as int
+
+android {
+    namespace 'io.github.kevinstadelmann.keep'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'io.github.kevinstadelmann.keep'
+        minSdk 26
+        targetSdk 34
+        versionCode buildNumber
+        versionName "1.0.${buildNumber}"
+    }
+
+    signingConfigs {
+        if (hasReleaseKey) {
+            release {
+                storeFile keyStoreFile
+                storeType 'pkcs12'
+                storePassword storePass
+                keyAlias signingAlias
+                keyPassword storePass
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig hasReleaseKey ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+
+    sourceSets {
+        main {
+            assets.srcDir(webAssets)
+        }
+    }
+}
+
+tasks.register('copyWebApp', Copy) {
+    from(webRoot) {
+        include 'index.html', 'style.css', 'app.js', 'pwa.js', 'manifest.webmanifest', 'icons/**'
+    }
+    into(webAssets)
+    // The site only uses its full-screen layout when installed as a PWA; the APK always wants it.
+    filesMatching('style.css') {
+        filter { String line -> line.replace('@media(display-mode:standalone)', '@media all') }
+    }
+}
+preBuild.dependsOn('copyWebApp')
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+}

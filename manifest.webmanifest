@@ -1,0 +1,17 @@
+{
+  "id": "./",
+  "name": "Keep — Small skips. Big plans.",
+  "short_name": "Keep",
+  "description": "Track purchases you skip and save towards what matters. Works offline; your data stays on this device.",
+  "lang": "en",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8f8f2",
+  "theme_color": "#204c3c",
+  "icons": [
+    {"src": "icons/keep-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/keep-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icons/keep-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
