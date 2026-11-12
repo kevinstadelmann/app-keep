@@ -4,45 +4,132 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#204c3c">
+<meta name="description" content="Keep is an Android app that tracks the purchases you skip and adds them up towards your saving goals. Offline, no account.">
 <title>Keep — Download for Android</title>
 <link rel="icon" href="icon.png">
 <style>
-  :root { --paper: #f8f8f2; --ink: #233e35; --green: #204c3c; --muted: #6f7a68; --line: #e0e4d7; }
+  :root { --paper: #f8f8f2; --card: #eef1e4; --ink: #233e35; --body: #56644f; --green: #204c3c; --muted: #6f7a68; --line: #e0e4d7; --lime: #dcebb1; }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--paper); color: var(--ink); font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; }
-  main { max-width: 520px; margin: 0 auto; padding: 56px 24px 48px; }
-  .icon { width: 88px; height: 88px; border-radius: 22px; display: block; }
-  .eyebrow { font-size: 11px; letter-spacing: 2px; font-weight: 700; color: var(--muted); margin: 28px 0 8px; }
-  h1 { font-size: 40px; line-height: 1.1; letter-spacing: -1.5px; font-weight: 600; margin: 0 0 14px; }
-  p { margin: 0 0 14px; color: #56644f; }
-  .download { display: block; text-align: center; text-decoration: none; background: var(--green); color: #f4f6e9; border-radius: 16px; padding: 18px 20px; font-size: 17px; font-weight: 600; margin: 30px 0 10px; }
-  .download:hover { background: #32634d; }
-  .download:focus-visible { outline: 3px solid #a28c45; outline-offset: 4px; }
-  .version { font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 36px; }
-  h2 { font-size: 16px; margin: 0 0 12px; }
-  ol { margin: 0 0 28px; padding-left: 22px; color: #56644f; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+  h1, h2 { text-wrap: balance; }
+
+  .hero { background: var(--green); color: #f4f6e9; }
+  .hero .wrap { display: grid; grid-template-columns: 1fr auto; gap: 48px; align-items: end; padding-top: 56px; }
+  .hero-text { padding-bottom: 56px; }
+  .icon { width: 72px; height: 72px; border-radius: 18px; display: block; border: 1px solid #ffffff26; }
+  h1 { font-size: clamp(36px, 6vw, 56px); line-height: 1.05; letter-spacing: -1.5px; font-weight: 600; margin: 24px 0 14px; }
+  .hero p { margin: 0 0 28px; color: #cfdcc4; font-size: 18px; max-width: 30em; }
+  .download { display: inline-block; text-decoration: none; background: var(--lime); color: #1c3a2e; border-radius: 16px; padding: 16px 28px; font-size: 17px; font-weight: 700; }
+  .download:hover { background: #e9f4c6; }
+  .download:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+  .version { font-size: 13px; color: #b0c5ad; margin-top: 12px; }
+  .hero-shot { width: 270px; height: auto; display: block; border-radius: 30px 30px 0 0; border: 8px solid #12281f; border-bottom: 0; }
+
+  section { padding: 56px 0; }
+  h2 { font-size: 26px; letter-spacing: -.5px; font-weight: 600; margin: 0 0 24px; }
+
+  .shots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+  figure { margin: 0; }
+  .shots img { width: 100%; height: auto; display: block; border-radius: 26px; border: 6px solid #2c342c; background: var(--paper); }
+  figcaption { margin-top: 14px; font-size: 14px; color: var(--body); }
+  figcaption strong { display: block; color: var(--ink); font-size: 15px; }
+
+  .features { background: var(--card); }
+  .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px 32px; margin: 0; padding: 0; list-style: none; }
+  .feature-grid li { font-size: 14px; color: var(--body); }
+  .feature-grid strong { display: block; color: var(--ink); font-size: 15px; margin-bottom: 4px; }
+
+  .install { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
+  ol { margin: 0; padding-left: 22px; color: var(--body); }
   li { margin-bottom: 8px; }
-  .note { border-top: 1px solid var(--line); padding-top: 20px; font-size: 13px; color: var(--muted); }
+  .install p { color: var(--body); margin: 0 0 12px; }
+  footer { border-top: 1px solid var(--line); padding: 24px 0 40px; font-size: 13px; color: var(--muted); }
+
+  @media (max-width: 760px) {
+    .hero .wrap { grid-template-columns: 1fr; gap: 0; padding-top: 40px; }
+    .hero-text { padding-bottom: 36px; }
+    .hero-shot { width: 230px; margin: 0 auto; }
+    section { padding: 40px 0; }
+    /* Screenshots swipe sideways on a phone instead of stacking into a very long page. */
+    .shots { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 -24px; padding: 0 24px 8px; scrollbar-width: none; }
+    .shots::-webkit-scrollbar { display: none; }
+    .shots figure { flex: none; width: 68%; max-width: 280px; scroll-snap-align: center; }
+    .feature-grid { grid-template-columns: 1fr; gap: 20px; }
+    .install { grid-template-columns: 1fr; gap: 32px; }
+  }
 </style>
 </head>
 <body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-text">
+      <img class="icon" src="icon.png" alt="">
+      <h1>Keep for Android</h1>
+      <p>Log the purchases you skip and see them add up towards your saving goals. Works offline; your data stays on your phone.</p>
+      <a class="download" href="keep.apk" download>Download Keep (.apk)</a>
+      <div class="version">Version __VERSION__ · built __DATE__ · Android 8 or newer</div>
+    </div>
+    <img class="hero-shot" src="screenshots/home.png" width="720" height="1480" alt="Keep home screen: a goal card showing CHF 802 of CHF 1,000, quick-add buttons and an Add a skip button">
+  </div>
+</header>
+
 <main>
-  <img class="icon" src="icon.png" alt="">
-  <div class="eyebrow">SMALL SKIPS. BIG PLANS.</div>
-  <h1>Keep for Android</h1>
-  <p>Track the purchases you skip and watch them add up towards your goals. Keep works offline and your data stays on your phone.</p>
+  <section>
+    <div class="wrap">
+      <h2>What it looks like</h2>
+      <div class="shots">
+        <figure>
+          <img src="screenshots/add.png" width="720" height="1480" loading="lazy" alt="Add a skip sheet with template chips, name, amount and goal fields">
+          <figcaption><strong>Add a skip</strong>Pick a template or type a name and amount, then choose the goal.</figcaption>
+        </figure>
+        <figure>
+          <img src="screenshots/skips.png" width="720" height="1480" loading="lazy" alt="My skips screen with goal and period filters, totals and a monthly timeline chart">
+          <figcaption><strong>My skips</strong>Filter by goal and period; see totals, a timeline and your most skipped items.</figcaption>
+        </figure>
+        <figure>
+          <img src="screenshots/goals.png" width="720" height="1480" loading="lazy" alt="My goals screen listing two goals and a form to edit the selected goal">
+          <figcaption><strong>My goals</strong>Run several goals at once, give each a picture, and end one whenever you like.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
 
-  <a class="download" href="keep.apk" download>Download Keep (.apk)</a>
-  <div class="version">Latest version: __VERSION__ · built __DATE__</div>
+  <section class="features">
+    <div class="wrap">
+      <h2>What it does</h2>
+      <ul class="feature-grid">
+        <li><strong>Several goals</strong>Each with its own target, progress and optional picture.</li>
+        <li><strong>Templates</strong>Save things you often skip, with or without a fixed amount.</li>
+        <li><strong>Three favourites</strong>Star templates to add them from the home screen in two taps.</li>
+        <li><strong>Statistics</strong>Totals, averages, a timeline and a breakdown by goal.</li>
+        <li><strong>Offline and private</strong>No account, no cloud, no tracking. Nothing leaves the phone.</li>
+        <li><strong>Backup</strong>Export and restore everything as a file under Settings.</li>
+      </ul>
+    </div>
+  </section>
 
-  <h2>How to install</h2>
-  <ol>
-    <li>Open this page on your Android phone and tap the download button.</li>
-    <li>Open the downloaded <strong>keep.apk</strong> file.</li>
-    <li>If Android asks, allow your browser to install apps, then tap Install.</li>
-  </ol>
-
-  <p class="note">Before updating, export a backup in Keep under My goals. This page always offers the newest build.</p>
+  <section>
+    <div class="wrap install">
+      <div>
+        <h2>How to install</h2>
+        <ol>
+          <li>Open this page on your Android phone and tap <strong>Download Keep</strong>.</li>
+          <li>Open the downloaded <strong>keep.apk</strong> file.</li>
+          <li>If Android asks, allow your browser to install apps, then tap Install.</li>
+        </ol>
+      </div>
+      <div>
+        <h2>Updating</h2>
+        <p>This page always offers the newest build. Before installing an update, export a backup in Keep: tap the gear icon to open <strong>Settings</strong>, then <strong>Export backup</strong>.</p>
+        <p>If an update refuses to install over the old version, uninstall Keep, install the new file and use <strong>Restore backup</strong> in Settings.</p>
+      </div>
+    </div>
+  </section>
 </main>
+
+<footer><div class="wrap">Keep · version __VERSION__</div></footer>
+
 </body>
 </html>
