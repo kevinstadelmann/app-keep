@@ -1,6 +1,6 @@
 // Bump this version whenever a bundled file changes. Updates activate after
 // all Keep windows close, so an open app never mixes different releases.
-const CACHE = 'keep-shell-v3';
+const CACHE = 'keep-shell-v4';
 const ASSETS = ['./', './index.html', './style.css', './app.js', './pwa.js',
   './manifest.webmanifest', './icons/keep-192.png', './icons/keep-512.png',
   './icons/keep-maskable-512.png'];

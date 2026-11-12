@@ -95,12 +95,11 @@ function renderHome() {
   const parts = total.toFixed(2).split('.');
   $('#total').textContent = money(Number(parts[0])); $('#cents').textContent = '.' + parts[1];
   $('#goal-name').textContent = goal.name;
-  $('#goal-target').textContent = 'of CHF ' + money(goal.target);
+  $('#goal-target').textContent = (total >= goal.target ? 'Target reached · ' : '') + 'of CHF ' + money(goal.target);
   const pct = Math.min(100, total / goal.target * 100);
   $('#percent').textContent = Math.round(pct) + '%';
   $('#progress-fill').style.width = pct + '%';
   $('.progress').setAttribute('aria-valuenow', pct.toFixed(1));
-  $('.goal-bottom span').textContent = total >= goal.target ? 'You did it. Look at all those little wins.' : 'Little by little, you’re getting there.';
   const card = $('.goal-card');
   card.classList.toggle('has-picture', !!goal.image);
   if (goal.image) card.style.setProperty('--picture', 'url("' + goal.image + '")'); else card.style.removeProperty('--picture');
@@ -118,7 +117,7 @@ function renderHome() {
     el('strong', {textContent: t.name}),
     el('small', {}, t.amount === null ? 'Set amount ' : 'CHF ' + money(t.amount) + ' ', el('b', {textContent: '＋'}))))
     : [el('button', {type: 'button', className: 'quick-empty', onclick: () => tab('templates'),
-      textContent: state.templates.length ? 'Star up to three templates to keep them here ↗' : 'Create templates for the things you often skip ↗'})]));
+      textContent: state.templates.length ? 'No favourites yet. Star up to three templates.' : 'No templates yet. Create one.'})]));
 }
 
 // "My skips": filters, summary, timeline and breakdowns.
@@ -176,9 +175,9 @@ function renderHistory() {
   // "All time" lists everything; the other periods list what falls inside the slices shown.
   const list = histPeriod === 'all' ? forGoal : forGoal.filter(e => new Date(e.date) >= slices[0].from);
   const total = sum(list);
-  $('#history-label').textContent = 'TOTAL KEPT · ' + PERIODS.find(p => p[0] === histPeriod)[1].toUpperCase();
+  $('#history-label').textContent = 'TOTAL · ' + PERIODS.find(p => p[0] === histPeriod)[1].toUpperCase();
   $('#history-total').textContent = 'CHF ' + money(total);
-  $('#history-count').textContent = histGoal === 'all' ? 'Across all your goals.' : 'For ' + goalName(histGoal) + '.';
+  $('#history-count').textContent = histGoal === 'all' ? 'All goals' : goalName(histGoal);
   $('#stat-average').textContent = list.length ? 'CHF ' + money(round2(total / list.length)) : '–';
   $('#stat-biggest').textContent = list.length ? 'CHF ' + money(Math.max(...list.map(e => e.amount))) : '–';
   $('#stat-count').textContent = String(list.length);
@@ -195,7 +194,7 @@ function renderHistory() {
     return button;
   }));
   $('#timeline-labels').replaceChildren(...slices.map(b => el('span', {textContent: b.label})));
-  $('#timeline-detail').textContent = histBar !== null ? describe(histBar) : list.length ? 'Tap a bar to see its total.' : 'Nothing kept in this period yet.';
+  $('#timeline-detail').textContent = histBar !== null ? describe(histBar) : list.length ? 'Tap a bar to see its total.' : 'No skips in this period.';
 
   const perGoal = state.goals.map(g => ({goal: g, total: sum(list.filter(e => e.goalId === g.id))})).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
   $('#by-goal-block').hidden = histGoal !== 'all' || perGoal.length < 2;
@@ -215,7 +214,7 @@ function renderHistory() {
     if (day !== lastDay) { rows.push(el('p', {className: 'day-heading', textContent: day})); lastDay = day; }
     rows.push(entryRow(e));
   }
-  $('#history-list').replaceChildren(...(rows.length ? rows : [emptyNote('No skips match these filters yet.')]));
+  $('#history-list').replaceChildren(...(rows.length ? rows : [emptyNote('No skips match these filters.')]));
 }
 function renderGoals() {
   const progress = g => 'CHF ' + money(sum(entriesFor(g.id))) + ' of CHF ' + money(g.target);
@@ -233,7 +232,7 @@ function renderGoals() {
     return el('div', {className: 'entry'},
       el('span', {className: 'entry-icon', textContent: '⚑'}),
       el('div', {className: 'entry-text'}, el('strong', {textContent: g.name}),
-        el('small', {textContent: 'Ended ' + shortDate(g.ended) + ' · kept ' + progress(g)})),
+        el('small', {textContent: 'Ended ' + shortDate(g.ended) + ' · ' + progress(g)})),
       el('button', {type: 'button', className: 'row-btn', textContent: 'Reopen', onclick: () => reopenGoal(g.id)}), remove);
   }));
   const creating = editingGoal === 'new';
@@ -241,8 +240,8 @@ function renderGoals() {
     editingGoal = state.activeGoal;
     $('#goal-input').value = activeGoal().name; $('#target-input').value = activeGoal().target;
   }
-  $('#goal-form-title').textContent = creating ? 'New goal' : 'Edit this goal';
-  $('#goal-submit').textContent = creating ? 'Create goal ↗' : 'Save my goal ↗';
+  $('#goal-form-title').textContent = creating ? 'New goal' : 'Edit goal';
+  $('#goal-submit').textContent = creating ? 'Create goal' : 'Save goal';
   const picture = creating ? newGoalImage : activeGoal().image;
   $('#goal-picture-preview').hidden = !picture;
   $('#goal-picture-preview').style.backgroundImage = picture ? 'url("' + picture + '")' : '';
@@ -261,7 +260,7 @@ function renderTemplates() {
       el('div', {className: 'entry-text'}, el('strong', {textContent: t.name}),
         el('small', {textContent: t.amount === null ? 'Amount filled in each time' : 'CHF ' + money(t.amount)})),
       el('button', {type: 'button', className: 'row-btn', textContent: 'Edit', onclick: () => editTemplate(t.id)}), remove);
-  }) : [emptyNote('No templates yet. Add your first one below.')]));
+  }) : [emptyNote('No templates yet.')]));
   const editing = state.templates.some(t => t.id === editingTemplate);
   if (!editing) editingTemplate = null;
   $('#template-form-title').textContent = editing ? 'Edit template' : 'New template';
@@ -353,7 +352,7 @@ $('#goal-form').onsubmit = e => {
   if (!name || !Number.isFinite(target) || target < 1 || target > 10000000) return;
   let next;
   if (editingGoal === 'new') {
-    if (state.goals.length >= 50) { toast('That is a lot of goals. Delete one before adding another.'); return; }
+    if (state.goals.length >= 50) { toast('Goal limit reached. Delete one before adding another.'); return; }
     const id = uid();
     next = {...state, goals: [...state.goals, newGoalImage ? {id, name, target, image: newGoalImage} : {id, name, target}], activeGoal: id};
   } else {
@@ -361,13 +360,13 @@ $('#goal-form').onsubmit = e => {
   }
   if (!commit(next)) return;
   editingGoal = state.activeGoal; newGoalImage = null;
-  render(); tab('home'); toast('Your goal is ready. One small skip at a time.');
+  render(); tab('home'); toast('Goal saved.');
 };
 async function deleteGoal(id) {
   const goal = state.goals.find(g => g.id === id), mine = entriesFor(id), count = mine.length;
   if (!goal || !state.goals.some(g => g.id !== id && !g.ended)) return;
   const detail = count ? [el('strong', {textContent: count + (count > 1 ? ' skips' : ' skip') + ' · CHF ' + money(sum(mine)) + ' will be removed'}),
-    el('small', {textContent: goal.ended ? 'They disappear from My skips and your statistics.' : 'Want to keep the history? End the goal instead of deleting it.'})] : [];
+    el('small', {textContent: goal.ended ? 'They are removed from My skips and the statistics.' : 'To keep the history, end the goal instead.'})] : [];
   if (!await ask({icon: '×', danger: true, title: 'Delete this goal?', detail, yes: 'Delete goal', no: 'Cancel',
     body: '“' + goal.name + '” will be removed for good. This cannot be undone.'})) return;
   const goals = state.goals.filter(g => g.id !== id), next = goals.find(g => !g.ended);
@@ -382,15 +381,15 @@ $('#end-goal').onclick = async () => {
   const goal = activeGoal();
   if (openGoals().length < 2) { toast('This is your only running goal. Create your next goal first, then end this one.'); return; }
   const kept = sum(entriesFor(goal.id)), reached = kept >= goal.target;
-  const note = reached ? 'You reached your target. Well done.' : 'CHF ' + money(round2(goal.target - kept)) + ' short of your target. That is still money you kept.';
-  if (!await ask({icon: reached ? '✳' : '⚑', title: reached ? 'Wrap up this goal?' : 'End this goal early?',
-    body: '“' + goal.name + '” will stop collecting skips. Everything you kept stays in your history, and you can reopen it any time.',
-    detail: [...progressDetail(goal, kept), el('small', {textContent: note})], yes: reached ? 'Wrap it up' : 'End goal anyway', no: reached ? 'Not yet' : 'Keep going'})) return;
+  const note = reached ? 'Target reached.' : 'CHF ' + money(round2(goal.target - kept)) + ' short of the target.';
+  if (!await ask({icon: reached ? '✳' : '⚑', title: reached ? 'End this goal?' : 'End this goal early?',
+    body: '“' + goal.name + '” will stop collecting skips. Its skips stay in My skips and you can reopen it later.',
+    detail: [...progressDetail(goal, kept), el('small', {textContent: note})], yes: 'End goal', no: 'Cancel'})) return;
   const next = openGoals().find(g => g.id !== goal.id);
   if (!next || state.activeGoal !== goal.id) return;
   if (!commit({...state, goals: state.goals.map(g => g.id === goal.id ? {...g, ended: new Date().toISOString()} : g), activeGoal: next.id})) return;
   editingGoal = state.activeGoal;
-  render(); toast('Goal ended with CHF ' + money(kept) + ' kept.', () => reopenGoal(goal.id, true));
+  render(); toast('Goal ended at CHF ' + money(kept) + '.', () => reopenGoal(goal.id, true));
 };
 function reopenGoal(id, select) {
   if (!state.goals.some(g => g.id === id && g.ended)) return;
@@ -473,7 +472,7 @@ $('#add-form').onsubmit = e => {
   const id = uid();
   if (!commit({...state, entries: [{id, name, amount, date: new Date().toISOString(), goalId}, ...state.entries]})) return;
   render(); $('#add-dialog').close();
-  toast('CHF ' + money(amount) + ' kept' + (goalId === state.activeGoal ? '. Nice choice.' : ' for ' + goalName(goalId) + '.'),
+  toast('CHF ' + money(amount) + ' added' + (goalId === state.activeGoal ? '.' : ' to ' + goalName(goalId) + '.'),
     () => { if (commit({...state, entries: state.entries.filter(x => x.id !== id)})) render(); });
 };
 

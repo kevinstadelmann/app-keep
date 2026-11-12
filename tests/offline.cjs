@@ -61,7 +61,7 @@ async function add(page,name,amount){
   assert.equal(await page.locator('#percent').textContent(),'2%');
   await page.screenshot({path:path.join(resultDir,'offline-home.png'),fullPage:true});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
-  await page.locator('[data-tab="goal"]').click();
+  await page.locator('[data-action="settings"]').click();
   const downloadPromise=page.waitForEvent('download');await page.locator('#export-data').click();
   const download=await downloadPromise;const backupPath=path.join(resultDir,'backup.json');await download.saveAs(backupPath);
   const backup=JSON.parse(fs.readFileSync(backupPath));assert.equal(backup.data.entries.length,1);
