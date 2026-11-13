@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press the app icon to get "Add a skip". -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutId="add_skip"
+        android:shortcutLongLabel="@string/shortcut_add"
+        android:shortcutShortLabel="@string/shortcut_add">
+        <intent
+            android:action="io.github.kevinstadelmann.keep.ADD_SKIP"
+            android:targetClass="io.github.kevinstadelmann.keep.MainActivity"
+            android:targetPackage="io.github.kevinstadelmann.keep" />
+    </shortcut>
+</shortcuts>

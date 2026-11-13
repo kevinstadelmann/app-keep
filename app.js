@@ -5,10 +5,14 @@ const MAX_FAVOURITES = 3;
 const uid = () => crypto.randomUUID();
 const MAX_PICTURE_CHARS = 700000; // Pictures are shrunk before saving so they fit in device storage.
 const defaultTemplates = () => []; // Templates are entirely the user's own.
+const CURRENCIES = {CHF: 'Swiss franc', EUR: 'Euro', USD: 'US dollar', GBP: 'British pound', CAD: 'Canadian dollar', AUD: 'Australian dollar',
+  SEK: 'Swedish krona', NOK: 'Norwegian krone', DKK: 'Danish krone', PLN: 'Polish zloty', CZK: 'Czech koruna', JPY: 'Japanese yen', INR: 'Indian rupee', BRL: 'Brazilian real'};
+const THEMES = ['system', 'light', 'dark'];
+const defaultSettings = () => ({currency: 'CHF', theme: 'system'});
 function freshState() {
   const id = uid();
   return {version: 2, goals: [{id, name: 'A little Alpine escape', target: 1000}], activeGoal: id,
-    templates: defaultTemplates(), entries: []};
+    templates: defaultTemplates(), entries: [], settings: defaultSettings()};
 }
 const validName = (v, max) => typeof v === 'string' && v.trim().length > 0 && v.length <= max;
 const validAmount = v => Number.isFinite(v) && v >= .01 && v <= 1000000;
@@ -22,6 +26,7 @@ function validV1(s) {
 function validState(s) {
   if (!s || s.version !== 2 || !Array.isArray(s.goals) || !Array.isArray(s.templates) || !Array.isArray(s.entries)) return false;
   if (s.goals.length < 1 || s.goals.length > 50 || s.templates.length > 100) return false;
+  if (!s.settings || !Object.hasOwn(CURRENCIES, s.settings.currency) || !THEMES.includes(s.settings.theme)) return false;
   if (!s.goals.every(g => g && typeof g.id === 'string' && validName(g.name, 50) &&
     Number.isFinite(g.target) && g.target >= 1 && g.target <= 10000000 &&
     (g.image == null || (typeof g.image === 'string' && g.image.startsWith('data:image/') && g.image.length <= MAX_PICTURE_CHARS)) &&
@@ -35,10 +40,14 @@ function validState(s) {
   return s.entries.every(e => validEntry(e) && goalIds.has(e.goalId)) && unique(s.entries);
 }
 function migrate(s) {
-  if (!s || s.version !== undefined || !validV1(s)) return s;
-  const id = uid();
-  return {version: 2, goals: [{id, name: s.goal, target: s.target}], activeGoal: id,
-    templates: defaultTemplates(), entries: s.entries.map(e => ({...e, goalId: id}))};
+  if (s && s.version === undefined && validV1(s)) {
+    const id = uid();
+    s = {version: 2, goals: [{id, name: s.goal, target: s.target}], activeGoal: id,
+      templates: defaultTemplates(), entries: s.entries.map(e => ({...e, goalId: id}))};
+  }
+  // Data saved before settings existed gets the defaults.
+  if (s && s.version === 2 && s.settings === undefined) s = {...s, settings: defaultSettings()};
+  return s;
 }
 
 let state;
@@ -53,10 +62,15 @@ try {
 let editingGoal = state.activeGoal; // A goal id, or 'new' while the form creates one.
 let editingTemplate = null;         // A template id while the form edits one.
 let newGoalImage = null;            // Picture chosen for a goal that is not created yet.
-let histGoal = 'all', histPeriod = 'all', histBar = null; // "My skips" filters and the tapped timeline bar.
+let histGoal = 'all', histPeriod = 'all', histBar = null, histSearch = ''; // "My skips" filters and the tapped timeline bar.
+let editingEntry = null;            // A skip id while the add sheet edits one.
 
 const $ = s => document.querySelector(s);
-const money = n => new Intl.NumberFormat('de-CH', {minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2}).format(n);
+const money = n => new Intl.NumberFormat(state.settings.currency === 'CHF' ? 'de-CH' : undefined, {minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2}).format(n);
+const C = () => state.settings.currency + ' '; // Currency label in front of every amount.
+const pad = n => String(n).padStart(2, '0');
+const localDay = date => { const d = new Date(date); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+const byNewest = entries => [...entries].sort((x, y) => Date.parse(y.date) - Date.parse(x.date));
 const round2 = n => Math.round(n * 100) / 100;
 function el(tag, props, ...children) {
   const node = Object.assign(document.createElement(tag), props);
@@ -79,10 +93,10 @@ const shortDate = iso => new Date(iso).toLocaleDateString('en-GB', {day: 'numeri
 
 function entryRow(e) {
   const date = new Date(e.date).toLocaleDateString('en-GB', {day: 'numeric', month: 'short'});
-  return el('div', {className: 'entry'},
+  return el('button', {type: 'button', className: 'entry entry-button', onclick: () => openEdit(e.id)},
     el('span', {className: 'entry-icon', textContent: iconFor(e.name)}),
     el('div', {className: 'entry-text'}, el('strong', {textContent: e.name}), el('small', {textContent: date + ' · ' + goalName(e.goalId)})),
-    el('span', {className: 'entry-amount', textContent: '+ CHF ' + money(e.amount)}));
+    el('span', {className: 'entry-amount', textContent: '+ ' + C() + money(e.amount)}));
 }
 const emptyNote = text => el('p', {className: 'empty-note', textContent: text});
 
@@ -95,7 +109,7 @@ function renderHome() {
   const parts = total.toFixed(2).split('.');
   $('#total').textContent = money(Number(parts[0])); $('#cents').textContent = '.' + parts[1];
   $('#goal-name').textContent = goal.name;
-  $('#goal-target').textContent = (total >= goal.target ? 'Target reached · ' : '') + 'of CHF ' + money(goal.target);
+  $('#goal-target').textContent = (total >= goal.target ? 'Target reached · ' : '') + 'of ' + C() + money(goal.target);
   const pct = Math.min(100, total / goal.target * 100);
   $('#percent').textContent = Math.round(pct) + '%';
   $('#progress-fill').style.width = pct + '%';
@@ -104,7 +118,7 @@ function renderHome() {
   card.classList.toggle('has-picture', !!goal.image);
   if (goal.image) card.style.setProperty('--picture', 'url("' + goal.image + '")'); else card.style.removeProperty('--picture');
   const week = buckets('week').map(b => sum(mine.filter(e => inBucket(e, b)))), weekMax = Math.max(...week, 1);
-  $('#week-total').textContent = 'CHF ' + money(round2(week.reduce((a, b) => a + b, 0)));
+  $('#week-total').textContent = C() + money(round2(week.reduce((a, b) => a + b, 0)));
   const today = (new Date().getDay() + 6) % 7;
   $('#week-bars').replaceChildren(...week.map((value, i) => {
     const bar = el('i', {className: i === today ? 'today' : ''});
@@ -115,7 +129,7 @@ function renderHome() {
   $('#quick-grid').replaceChildren(...(favs.length ? favs.map(t => el('button', {type: 'button', onclick: () => openAdd(t.name, t.amount)},
     el('span', {className: 'quick-icon', textContent: iconFor(t.name)}),
     el('strong', {textContent: t.name}),
-    el('small', {}, t.amount === null ? 'Set amount ' : 'CHF ' + money(t.amount) + ' ', el('b', {textContent: '＋'}))))
+    el('small', {}, t.amount === null ? 'Set amount ' : C() + money(t.amount) + ' ', el('b', {textContent: '＋'}))))
     : [el('button', {type: 'button', className: 'quick-empty', onclick: () => tab('templates'),
       textContent: state.templates.length ? 'No favourites yet. Star up to three templates.' : 'No templates yet. Create one.'})]));
 }
@@ -154,7 +168,7 @@ function buckets(period) {
 function barRow(name, note, value, max) {
   const fill = el('i'); fill.style.width = Math.max(2, value / max * 100) + '%';
   return el('div', {className: 'bar-row'},
-    el('div', {className: 'bar-row-top'}, el('span', {}, name, note ? el('small', {textContent: ' ' + note}) : ''), el('strong', {textContent: 'CHF ' + money(value)})),
+    el('div', {className: 'bar-row-top'}, el('span', {}, name, note ? el('small', {textContent: ' ' + note}) : ''), el('strong', {textContent: C() + money(value)})),
     el('div', {className: 'bar-track'}, fill));
 }
 function filterChip(label, selected, onclick) {
@@ -171,20 +185,21 @@ function renderHistory() {
   $('#filter-period').replaceChildren(...PERIODS.map(([id, label]) => filterChip(label, histPeriod === id, () => setFilter(() => histPeriod = id))));
 
   const slices = buckets(histPeriod);
-  const forGoal = state.entries.filter(e => histGoal === 'all' || e.goalId === histGoal);
+  const needle = histSearch.trim().toLowerCase();
+  const forGoal = state.entries.filter(e => (histGoal === 'all' || e.goalId === histGoal) && (!needle || e.name.toLowerCase().includes(needle)));
   // "All time" lists everything; the other periods list what falls inside the slices shown.
   const list = histPeriod === 'all' ? forGoal : forGoal.filter(e => new Date(e.date) >= slices[0].from);
   const total = sum(list);
   $('#history-label').textContent = 'TOTAL · ' + PERIODS.find(p => p[0] === histPeriod)[1].toUpperCase();
-  $('#history-total').textContent = 'CHF ' + money(total);
-  $('#history-count').textContent = histGoal === 'all' ? 'All goals' : goalName(histGoal);
-  $('#stat-average').textContent = list.length ? 'CHF ' + money(round2(total / list.length)) : '–';
-  $('#stat-biggest').textContent = list.length ? 'CHF ' + money(Math.max(...list.map(e => e.amount))) : '–';
+  $('#history-total').textContent = C() + money(total);
+  $('#history-count').textContent = (histGoal === 'all' ? 'All goals' : goalName(histGoal)) + (needle ? ' · matching “' + histSearch.trim() + '”' : '');
+  $('#stat-average').textContent = list.length ? C() + money(round2(total / list.length)) : '–';
+  $('#stat-biggest').textContent = list.length ? C() + money(Math.max(...list.map(e => e.amount))) : '–';
   $('#stat-count').textContent = String(list.length);
 
   const values = slices.map(b => { const inside = forGoal.filter(e => inBucket(e, b)); return {total: sum(inside), count: inside.length}; });
   const max = Math.max(...values.map(v => v.total), 1);
-  const describe = i => slices[i].name + ' · CHF ' + money(values[i].total) + ' · ' + values[i].count + (values[i].count === 1 ? ' skip' : ' skips');
+  const describe = i => slices[i].name + ' · ' + C() + money(values[i].total) + ' · ' + values[i].count + (values[i].count === 1 ? ' skip' : ' skips');
   $('#timeline-unit').textContent = histPeriod === 'week' || histPeriod === 'month' ? 'PER DAY' : histPeriod === 'year' ? 'PER MONTH' : 'PER MONTH · LAST 12 MONTHS';
   $('#timeline').replaceChildren(...slices.map((b, i) => {
     const bar = el('i'); bar.style.height = values[i].total ? Math.max(3, values[i].total / max * 100) + '%' : '2px';
@@ -217,7 +232,7 @@ function renderHistory() {
   $('#history-list').replaceChildren(...(rows.length ? rows : [emptyNote('No skips match these filters.')]));
 }
 function renderGoals() {
-  const progress = g => 'CHF ' + money(sum(entriesFor(g.id))) + ' of CHF ' + money(g.target);
+  const progress = g => C() + money(sum(entriesFor(g.id))) + ' of ' + C() + money(g.target);
   $('#goal-list').replaceChildren(...openGoals().map(g => {
     const selected = g.id === state.activeGoal;
     return el('button', {type: 'button', className: 'goal-row' + (selected ? ' active' : ''), onclick: () => selectGoal(g.id)},
@@ -258,7 +273,7 @@ function renderTemplates() {
     remove.setAttribute('aria-label', 'Delete template: ' + t.name);
     return el('div', {className: 'entry'}, star,
       el('div', {className: 'entry-text'}, el('strong', {textContent: t.name}),
-        el('small', {textContent: t.amount === null ? 'Amount filled in each time' : 'CHF ' + money(t.amount)})),
+        el('small', {textContent: t.amount === null ? 'Amount filled in each time' : C() + money(t.amount)})),
       el('button', {type: 'button', className: 'row-btn', textContent: 'Edit', onclick: () => editTemplate(t.id)}), remove);
   }) : [emptyNote('No templates yet.')]));
   const editing = state.templates.some(t => t.id === editingTemplate);
@@ -267,7 +282,39 @@ function renderTemplates() {
   $('#template-submit').textContent = editing ? 'Save changes' : 'Add template';
   $('#template-cancel').hidden = !editing;
 }
-function render() { renderHome(); renderHistory(); renderGoals(); renderTemplates(); }
+function renderSettings() {
+  if (!$('#currency-select').options.length) $('#currency-select').replaceChildren(...Object.entries(CURRENCIES).map(([code, name]) => el('option', {value: code, textContent: code + ' · ' + name})));
+  $('#currency-select').value = state.settings.currency; $('#theme-select').value = state.settings.theme;
+  document.querySelectorAll('.cur').forEach(node => node.textContent = state.settings.currency);
+}
+// Dark mode: the chosen theme, or the phone's own setting. The Android app reports that itself,
+// because its WebView does not pass it on.
+let shownDark = null;
+function applyTheme() {
+  const systemDark = window.KeepAndroid?.isSystemDark ? window.KeepAndroid.isSystemDark() : matchMedia('(prefers-color-scheme: dark)').matches;
+  const dark = state.settings.theme === 'dark' || (state.settings.theme === 'system' && systemDark);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  if (dark === shownDark) return;
+  shownDark = dark;
+  document.querySelector('meta[name="theme-color"]').content = dark ? '#121a16' : '#204c3c';
+  window.KeepAndroid?.setDark?.(dark);
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+// The Android home-screen widget shows the selected goal; tell it whenever that changes.
+let widgetShown = '';
+function updateWidget() {
+  if (!window.KeepAndroid?.updateWidget) return;
+  const goal = activeGoal(), total = sum(entriesFor(goal.id));
+  const text = C() + money(total) + ' of ' + C() + money(goal.target), percent = Math.round(Math.min(100, total / goal.target * 100));
+  const key = goal.name + '|' + text + '|' + percent;
+  if (key === widgetShown) return;
+  widgetShown = key; window.KeepAndroid.updateWidget(goal.name, text, percent);
+}
+function render() { applyTheme(); renderSettings(); renderHome(); renderHistory(); renderGoals(); renderTemplates(); updateWidget(); }
+function saveSetting(change) { if (commit({...state, settings: {...state.settings, ...change}})) render(); else renderSettings(); }
+$('#theme-select').onchange = e => saveSetting({theme: e.target.value});
+$('#currency-select').onchange = e => saveSetting({currency: e.target.value});
+$('#skip-search').oninput = e => { histSearch = e.target.value; histBar = null; renderHistory(); };
 
 function tab(name) {
   document.querySelectorAll('.screen').forEach(s => s.hidden = s.id !== name);
@@ -307,7 +354,7 @@ function ask({icon = '⚑', title, body, detail = [], yes, no, danger = false}) 
 }
 function progressDetail(goal, kept) {
   const pct = Math.min(100, kept / goal.target * 100), fill = el('div'); fill.style.width = pct + '%';
-  return [el('strong', {textContent: 'CHF ' + money(kept) + ' of CHF ' + money(goal.target) + ' · ' + Math.round(pct) + '%'}),
+  return [el('strong', {textContent: C() + money(kept) + ' of ' + C() + money(goal.target) + ' · ' + Math.round(pct) + '%'}),
     el('div', {className: 'progress'}, fill)];
 }
 // Pictures are scaled down and saved as JPEG text inside the goal, so backups include them.
@@ -365,7 +412,7 @@ $('#goal-form').onsubmit = e => {
 async function deleteGoal(id) {
   const goal = state.goals.find(g => g.id === id), mine = entriesFor(id), count = mine.length;
   if (!goal || !state.goals.some(g => g.id !== id && !g.ended)) return;
-  const detail = count ? [el('strong', {textContent: count + (count > 1 ? ' skips' : ' skip') + ' · CHF ' + money(sum(mine)) + ' will be removed'}),
+  const detail = count ? [el('strong', {textContent: count + (count > 1 ? ' skips' : ' skip') + ' · ' + C() + money(sum(mine)) + ' will be removed'}),
     el('small', {textContent: goal.ended ? 'They are removed from My skips and the statistics.' : 'To keep the history, end the goal instead.'})] : [];
   if (!await ask({icon: '×', danger: true, title: 'Delete this goal?', detail, yes: 'Delete goal', no: 'Cancel',
     body: '“' + goal.name + '” will be removed for good. This cannot be undone.'})) return;
@@ -381,7 +428,7 @@ $('#end-goal').onclick = async () => {
   const goal = activeGoal();
   if (openGoals().length < 2) { toast('This is your only running goal. Create your next goal first, then end this one.'); return; }
   const kept = sum(entriesFor(goal.id)), reached = kept >= goal.target;
-  const note = reached ? 'Target reached.' : 'CHF ' + money(round2(goal.target - kept)) + ' short of the target.';
+  const note = reached ? 'Target reached.' : C() + money(round2(goal.target - kept)) + ' short of the target.';
   if (!await ask({icon: reached ? '✳' : '⚑', title: reached ? 'End this goal?' : 'End this goal early?',
     body: '“' + goal.name + '” will stop collecting skips. Its skips stay in My skips and you can reopen it later.',
     detail: [...progressDetail(goal, kept), el('small', {textContent: note})], yes: 'End goal', no: 'Cancel'})) return;
@@ -389,7 +436,7 @@ $('#end-goal').onclick = async () => {
   if (!next || state.activeGoal !== goal.id) return;
   if (!commit({...state, goals: state.goals.map(g => g.id === goal.id ? {...g, ended: new Date().toISOString()} : g), activeGoal: next.id})) return;
   editingGoal = state.activeGoal;
-  render(); toast('Goal ended at CHF ' + money(kept) + '.', () => reopenGoal(goal.id, true));
+  render(); toast('Goal ended at ' + C() + money(kept) + '.', () => reopenGoal(goal.id, true));
 };
 function reopenGoal(id, select) {
   if (!state.goals.some(g => g.id === id && g.ended)) return;
@@ -447,33 +494,70 @@ $('#template-form').onsubmit = e => {
   toast(wasEditing ? 'Template updated.' : 'Template saved.');
 };
 
-// Adding a skip
+// Adding, editing and deleting a skip (one sheet for all three)
 function fillAdd(name, amount) {
   $('#purchase-input').value = name;
   $('#amount-input').value = amount ?? '';
 }
-function openAdd(name = '', amount = null) {
-  fillAdd(name, amount);
-  $('#template-chips').replaceChildren(...state.templates.map(t => el('button', {type: 'button', className: 'chip',
+function showSkipSheet(entry) {
+  editingEntry = entry ? entry.id : null;
+  $('#add-title').textContent = entry ? 'Edit skip' : 'Add a skip';
+  $('#add-submit').textContent = entry ? 'Save' : 'Add';
+  $('#delete-skip').hidden = !entry;
+  $('#template-chips').replaceChildren(...(entry ? [] : state.templates).map(t => el('button', {type: 'button', className: 'chip',
     textContent: t.amount === null ? t.name : t.name + ' · ' + money(t.amount),
     onclick: () => { fillAdd(t.name, t.amount); if (t.amount === null) $('#amount-input').focus(); }})));
-  $('#template-chips').hidden = !state.templates.length;
-  $('#goal-select').replaceChildren(...openGoals().map(g => el('option', {value: g.id, textContent: g.name})));
-  $('#goal-select').value = state.activeGoal;
+  $('#template-chips').hidden = !!entry || !state.templates.length;
+  // An ended goal is offered only for a skip that already belongs to it.
+  const goals = state.goals.filter(g => !g.ended || (entry && g.id === entry.goalId));
+  $('#goal-select').replaceChildren(...goals.map(g => el('option', {value: g.id, textContent: g.name + (g.ended ? ' (ended)' : '')})));
+  $('#goal-select').value = entry ? entry.goalId : state.activeGoal;
+  $('#date-input').max = localDay(new Date());
+  $('#date-input').value = localDay(entry ? entry.date : new Date());
   $('#add-dialog').showModal();
+}
+function openAdd(name = '', amount = null) {
+  fillAdd(name, amount);
+  showSkipSheet(null);
   if (name && amount === null) $('#amount-input').focus();
 }
+function openEdit(id) {
+  const entry = state.entries.find(e => e.id === id);
+  if (!entry) return;
+  fillAdd(entry.name, entry.amount);
+  showSkipSheet(entry);
+}
+// Used by the Android app shortcut and widget.
+function keepAdd() { if (!document.querySelector('dialog[open]')) { tab('home'); openAdd(); } }
 $('.close').onclick = () => $('#add-dialog').close();
 $('#add-form').onsubmit = e => {
   e.preventDefault();
-  const name = $('#purchase-input').value.trim(), amount = round2(Number($('#amount-input').value));
-  const goalId = openGoals().some(g => g.id === $('#goal-select').value) ? $('#goal-select').value : state.activeGoal;
-  if (!name || !validAmount(amount)) return;
+  const name = $('#purchase-input').value.trim(), amount = round2(Number($('#amount-input').value)), day = $('#date-input').value;
+  const old = state.entries.find(x => x.id === editingEntry);
+  const goalId = $('#goal-select').value;
+  if (!name || !validAmount(amount) || !day || day > localDay(new Date()) || !state.goals.some(g => g.id === goalId)) return;
+  // Keep the exact time when the day is unchanged; another day is stored at midday.
+  const date = old && localDay(old.date) === day ? old.date : day === localDay(new Date()) ? new Date().toISOString() : new Date(day + 'T12:00:00').toISOString();
+  if (old) {
+    if (!commit({...state, entries: byNewest(state.entries.map(x => x.id === old.id ? {...x, name, amount, date, goalId} : x))})) return;
+    render(); $('#add-dialog').close();
+    toast('Skip updated.', () => { if (commit({...state, entries: byNewest(state.entries.map(x => x.id === old.id ? old : x))})) render(); });
+    return;
+  }
   const id = uid();
-  if (!commit({...state, entries: [{id, name, amount, date: new Date().toISOString(), goalId}, ...state.entries]})) return;
+  if (!commit({...state, entries: byNewest([{id, name, amount, date, goalId}, ...state.entries])})) return;
   render(); $('#add-dialog').close();
-  toast('CHF ' + money(amount) + ' added' + (goalId === state.activeGoal ? '.' : ' to ' + goalName(goalId) + '.'),
+  toast(C() + money(amount) + ' added' + (goalId === state.activeGoal ? '.' : ' to ' + goalName(goalId) + '.'),
     () => { if (commit({...state, entries: state.entries.filter(x => x.id !== id)})) render(); });
+};
+$('#delete-skip').onclick = () => {
+  const old = state.entries.find(x => x.id === editingEntry);
+  if (!old || !commit({...state, entries: state.entries.filter(x => x.id !== old.id)})) return;
+  render(); $('#add-dialog').close();
+  toast('Skip deleted.', () => {
+    if (state.entries.some(x => x.id === old.id) || !state.goals.some(g => g.id === old.goalId)) return;
+    if (commit({...state, entries: byNewest([old, ...state.entries])})) render();
+  });
 };
 
 document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => tab(b.dataset.tab));
@@ -511,3 +595,5 @@ window.addEventListener('storage', e => {
 });
 render();
 if (storageBlocked) $('#storage-error').hidden = false;
+// Opened from an app shortcut ("Add a skip"): go straight to the add sheet.
+if (new URLSearchParams(location.search).get('action') === 'add') { history.replaceState(null, '', location.pathname); openAdd(); }

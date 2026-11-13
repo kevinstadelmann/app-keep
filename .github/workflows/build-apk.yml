@@ -80,6 +80,11 @@ jobs:
         run: |
           cp -r site/. _site/
           cp icons/keep-512.png _site/icon.png
+          # The web app itself, for iPhone (Add to Home Screen) and any browser.
+          mkdir -p _site/app
+          cp -r index.html style.css app.js pwa.js sw.js manifest.webmanifest icons _site/app/
+          # A new cache name per build makes installed web apps pick up the update.
+          sed -i "s/keep-shell-v[0-9]*/keep-shell-b${{ github.run_number }}/" _site/app/sw.js
           sed -i "s/__VERSION__/1.0.${{ github.run_number }}/g; s/__DATE__/$(date -u '+%-d %B %Y')/" _site/index.html
 
       - uses: actions/configure-pages@v5

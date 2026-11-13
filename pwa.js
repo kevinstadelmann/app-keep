@@ -7,7 +7,8 @@
   const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   function updateInstall() {
     install.hidden = !ready || !promptEvent || standalone();
-    help.textContent = standalone() ? 'Keep is installed on this device.' : 'In Android Chrome, use the menu → Add to Home screen → Install. If you only see a shortcut, wait for “Offline ready” and try again.';
+    const apple = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    help.textContent = standalone() ? 'Keep is installed on this device.' : apple ? 'In Safari, tap the Share button, then “Add to Home Screen”.' : 'In Android Chrome, use the menu → Add to Home screen → Install. If you only see a shortcut, wait for “Offline ready” and try again.';
   }
   window.addEventListener('beforeinstallprompt', event => {
     event.preventDefault(); promptEvent = event; updateInstall();

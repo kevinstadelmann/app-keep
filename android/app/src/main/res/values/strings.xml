@@ -3,4 +3,8 @@
     <string name="app_name">Keep</string>
     <string name="backup_saved">Backup saved.</string>
     <string name="backup_failed">Could not save the backup.</string>
+    <string name="shortcut_add">Add a skip</string>
+    <string name="widget_add">+ Add a skip</string>
+    <string name="widget_open_hint">Open Keep to start</string>
+    <string name="widget_description">Your selected goal and a button to add a skip.</string>
 </resources>
